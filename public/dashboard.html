@@ -7,6 +7,7 @@
 <body class="dashboard-page">
 
 <div class="dashboard-container">
+
   <div class="top-header">
     <div>
       <h1>Welcome Back, <span id="username">User</span></h1>
@@ -46,57 +47,122 @@
   </section>
 
   <section id="content" class="content-panel"></section>
+
 </div>
 
 <script>
-const token = localStorage.getItem("token");
+const API = {
+  profile: "/api/profile",
+  users: "/api/users",
+  admin: "/api/admin",
+  manager: "/api/manager",
+  user: "/api/user"
+};
 
-if (!token) {
-  window.location.href = "auth.html";
+function getToken() {
+  return localStorage.getItem("token");
 }
 
 function authHeaders() {
   return {
     "Content-Type": "application/json",
-    "Authorization": "Bearer " + token
+    "Authorization": "Bearer " + getToken()
   };
 }
 
-async function getProfileData() {
-  const res = await fetch("/api/profile", { headers: authHeaders() });
-  return await res.json();
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...authHeaders(),
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json();
+  return { response, data };
+}
+
+function renderContent(html) {
+  document.getElementById("content").innerHTML = html;
+}
+
+function renderBlockedAccess(title, message) {
+  renderContent(`
+    <div class="blocked-box">
+      <h2>⛔ Blocked Access</h2>
+      <p>You are not allowed to open <strong>${title}</strong>.</p>
+      <small>${message}</small>
+    </div>
+  `);
+}
+
+function renderUserRows(users, isAdminView = false) {
+  return users.map(user => `
+    <tr>
+      <td>${user.name}</td>
+      <td>${user.email}</td>
+      <td>
+        ${
+          isAdminView
+            ? `
+              <select id="role-${user.id}">
+                <option value="Admin" ${user.role === "Admin" ? "selected" : ""}>Admin</option>
+                <option value="Manager" ${user.role === "Manager" ? "selected" : ""}>Manager</option>
+                <option value="User" ${user.role === "User" ? "selected" : ""}>User</option>
+              </select>
+            `
+            : `<span class="role-chip ${user.role.toLowerCase()}">${user.role}</span>`
+        }
+      </td>
+      <td>
+        ${
+          isAdminView
+            ? `
+              <button class="small-btn" onclick="updateRole(${user.id})">Save</button>
+              <button class="delete-btn" onclick="deleteUser(${user.id})">Delete</button>
+            `
+            : `<span class="success">Active</span>`
+        }
+      </td>
+    </tr>
+  `).join("");
 }
 
 async function init() {
-  const data = await getProfileData();
+  const token = getToken();
 
-  if (data.user) {
-    document.getElementById("username").innerText = data.user.name;
-    document.getElementById("roleBadge").innerText = data.user.role;
-    document.getElementById("tokenBox").value = token;
+  if (!token) {
+    window.location.href = "auth.html";
+    return;
   }
+
+  const { response, data } = await apiRequest(API.profile);
+
+  if (!response.ok || !data.user) {
+    localStorage.clear();
+    window.location.href = "auth.html";
+    return;
+  }
+
+  document.getElementById("username").innerText = data.user.name;
+  document.getElementById("roleBadge").innerText = data.user.role;
+  document.getElementById("tokenBox").value = token;
 
   loadProfile();
 }
 
 async function checkAccess(route, title) {
-  const res = await fetch(route, { headers: authHeaders() });
-  const data = await res.json();
+  const { response, data } = await apiRequest(route);
 
-  if (!res.ok) {
-    document.getElementById("content").innerHTML = `
-      <div class="blocked-box">
-        <h2>⛔ Blocked Access</h2>
-        <p>You are not allowed to open <strong>${title}</strong>.</p>
-        <small>${data.message}</small>
-      </div>
-    `;
+  if (!response.ok) {
+    renderBlockedAccess(title, data.message);
     return;
   }
 
-  if (route === "/api/admin") {
+  if (route === API.admin) {
     loadAdminPanel();
-  } else if (route === "/api/manager") {
+  } else if (route === API.manager) {
     loadManagerView();
   } else {
     loadUserArea();
@@ -104,10 +170,10 @@ async function checkAccess(route, title) {
 }
 
 async function loadProfile() {
-  const data = await getProfileData();
+  const { data } = await apiRequest(API.profile);
   const user = data.user;
 
-  document.getElementById("content").innerHTML = `
+  renderContent(`
     <div class="profile-layout">
       <div class="profile-card">
         <div class="avatar-circle">${user.name.charAt(0).toUpperCase()}</div>
@@ -127,23 +193,18 @@ async function loadProfile() {
         <div class="detail-row"><strong>Password</strong><span class="danger-text">Hidden for security</span></div>
       </div>
     </div>
-  `;
+  `);
 }
 
 async function loadManagerView() {
-  const res = await fetch("/api/users", { headers: authHeaders() });
-  const data = await res.json();
+  const { response, data } = await apiRequest(API.users);
 
-  let rows = data.users.map(user => `
-    <tr>
-      <td>${user.name}</td>
-      <td>${user.email}</td>
-      <td><span class="role-chip ${user.role.toLowerCase()}">${user.role}</span></td>
-      <td><span class="success">Active</span></td>
-    </tr>
-  `).join("");
+  if (!response.ok) {
+    renderBlockedAccess("Manager View", data.message);
+    return;
+  }
 
-  document.getElementById("content").innerHTML = `
+  renderContent(`
     <div class="section-title">
       <h2>Manager View</h2>
       <p>Read-only users list. Passwords and 2FA secrets are hidden.</p>
@@ -158,37 +219,23 @@ async function loadManagerView() {
           <th>Status</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>${renderUserRows(data.users, false)}</tbody>
     </table>
-  `;
+  `);
 }
 
 async function loadAdminPanel() {
-  const res = await fetch("/api/users", { headers: authHeaders() });
-  const data = await res.json();
+  const { response, data } = await apiRequest(API.users);
 
-  let rows = data.users.map(user => `
-    <tr>
-      <td>${user.name}</td>
-      <td>${user.email}</td>
-      <td>
-        <select id="role-${user.id}">
-          <option value="Admin" ${user.role === "Admin" ? "selected" : ""}>Admin</option>
-          <option value="Manager" ${user.role === "Manager" ? "selected" : ""}>Manager</option>
-          <option value="User" ${user.role === "User" ? "selected" : ""}>User</option>
-        </select>
-      </td>
-      <td>
-        <button class="small-btn" onclick="updateRole(${user.id})">Save</button>
-        <button class="delete-btn" onclick="deleteUser(${user.id})">Delete</button>
-      </td>
-    </tr>
-  `).join("");
+  if (!response.ok) {
+    renderBlockedAccess("Admin Panel", data.message);
+    return;
+  }
 
-  document.getElementById("content").innerHTML = `
+  renderContent(`
     <div class="section-title">
       <h2>Admin Control Panel</h2>
-      <p>Admin can update roles and delete users.</p>
+      <p>Admin can update roles and delete users. Password hashes are hidden inside the app.</p>
     </div>
 
     <table>
@@ -200,39 +247,38 @@ async function loadAdminPanel() {
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>${renderUserRows(data.users, true)}</tbody>
     </table>
-  `;
+  `);
 }
 
 async function loadUserArea() {
-  const data = await getProfileData();
+  const { data } = await apiRequest(API.profile);
   const user = data.user;
 
-  document.getElementById("content").innerHTML = `
+  renderContent(`
     <div class="user-area">
       <h2>👤 User Area</h2>
       <p>Welcome, <strong>${user.name}</strong>.</p>
-      <p>This page is accessible for User, Manager, and Admin.</p>
+      <p>This route is protected using JWT token authentication.</p>
+
       <div class="mini-info">
         <span>Email: ${user.email}</span>
         <span>Role: ${user.role}</span>
         <span>2FA: Enabled</span>
       </div>
     </div>
-  `;
+  `);
 }
 
 async function updateRole(id) {
-  const role = document.getElementById(`role-${id}`).value;
+  const selectedRole = document.getElementById(`role-${id}`).value;
 
-  const res = await fetch(`/api/users/${id}/role`, {
+  const { data } = await apiRequest(`/api/users/${id}/role`, {
     method: "PATCH",
-    headers: authHeaders(),
-    body: JSON.stringify({ role })
+    body: JSON.stringify({ role: selectedRole })
   });
 
-  const data = await res.json();
   alert(data.message);
   loadAdminPanel();
 }
@@ -240,12 +286,10 @@ async function updateRole(id) {
 async function deleteUser(id) {
   if (!confirm("Are you sure you want to delete this user?")) return;
 
-  const res = await fetch(`/api/users/${id}`, {
-    method: "DELETE",
-    headers: authHeaders()
+  const { data } = await apiRequest(`/api/users/${id}`, {
+    method: "DELETE"
   });
 
-  const data = await res.json();
   alert(data.message);
   loadAdminPanel();
 }
