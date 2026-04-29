@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SecureAuth Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard-page">
+
+<div class="dashboard-container">
+  <div class="top-header">
+    <div>
+      <h1>Welcome Back, <span id="username">User</span></h1>
+      <p>System Status: <strong id="roleBadge">Role</strong></p>
+    </div>
+    <button class="logout-top" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="actions-grid">
+    <button onclick="checkAccess('/api/admin', 'Admin Panel')" class="action-card admin-btn">
+      <span>🛡️</span>
+      <h3>Admin</h3>
+      <p>Admin protected area</p>
+    </button>
+
+    <button onclick="checkAccess('/api/manager', 'Manager View')" class="action-card manager-btn">
+      <span>📊</span>
+      <h3>Manager</h3>
+      <p>Manager protected area</p>
+    </button>
+
+    <button onclick="checkAccess('/api/user', 'User Area')" class="action-card user-btn">
+      <span>👤</span>
+      <h3>User</h3>
+      <p>User protected area</p>
+    </button>
+  </div>
+
+  <div class="extra-actions">
+    <button onclick="loadProfile()">My Profile</button>
+    <button onclick="toggleToken()">Show My Token</button>
+  </div>
+
+  <section id="tokenPanel" class="token-panel" style="display:none;">
+    <h3>My JWT Token</h3>
+    <textarea id="tokenBox" readonly></textarea>
+  </section>
+
+  <section id="content" class="content-panel"></section>
+</div>
+
+<script>
+const token = localStorage.getItem("token");
+
+if (!token) {
+  window.location.href = "auth.html";
+}
+
+function authHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + token
+  };
+}
+
+async function getProfileData() {
+  const res = await fetch("/api/profile", { headers: authHeaders() });
+  return await res.json();
+}
+
+async function init() {
+  const data = await getProfileData();
+
+  if (data.user) {
+    document.getElementById("username").innerText = data.user.name;
+    document.getElementById("roleBadge").innerText = data.user.role;
+    document.getElementById("tokenBox").value = token;
+  }
+
+  loadProfile();
+}
+
+async function checkAccess(route, title) {
+  const res = await fetch(route, { headers: authHeaders() });
+  const data = await res.json();
+
+  if (!res.ok) {
+    document.getElementById("content").innerHTML = `
+      <div class="blocked-box">
+        <h2>⛔ Blocked Access</h2>
+        <p>You are not allowed to open <strong>${title}</strong>.</p>
+        <small>${data.message}</small>
+      </div>
+    `;
+    return;
+  }
+
+  if (route === "/api/admin") {
+    loadAdminPanel();
+  } else if (route === "/api/manager") {
+    loadManagerView();
+  } else {
+    loadUserArea();
+  }
+}
+
+async function loadProfile() {
+  const data = await getProfileData();
+  const user = data.user;
+
+  document.getElementById("content").innerHTML = `
+    <div class="profile-layout">
+      <div class="profile-card">
+        <div class="avatar-circle">${user.name.charAt(0).toUpperCase()}</div>
+        <h2>${user.name}</h2>
+        <p>${user.email}</p>
+        <span>${user.role} Access</span>
+      </div>
+
+      <div class="details-card">
+        <h2>Account Overview</h2>
+
+        <div class="detail-row"><strong>Full Name</strong><span>${user.name}</span></div>
+        <div class="detail-row"><strong>Email</strong><span>${user.email}</span></div>
+        <div class="detail-row"><strong>Role</strong><span>${user.role}</span></div>
+        <div class="detail-row"><strong>Status</strong><span class="success">Verified</span></div>
+        <div class="detail-row"><strong>2FA</strong><span class="success">Enabled</span></div>
+        <div class="detail-row"><strong>Password</strong><span class="danger-text">Hidden for security</span></div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadManagerView() {
+  const res = await fetch("/api/users", { headers: authHeaders() });
+  const data = await res.json();
+
+  let rows = data.users.map(user => `
+    <tr>
+      <td>${user.name}</td>
+      <td>${user.email}</td>
+      <td><span class="role-chip ${user.role.toLowerCase()}">${user.role}</span></td>
+      <td><span class="success">Active</span></td>
+    </tr>
+  `).join("");
+
+  document.getElementById("content").innerHTML = `
+    <div class="section-title">
+      <h2>Manager View</h2>
+      <p>Read-only users list. Passwords and 2FA secrets are hidden.</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+async function loadAdminPanel() {
+  const res = await fetch("/api/users", { headers: authHeaders() });
+  const data = await res.json();
+
+  let rows = data.users.map(user => `
+    <tr>
+      <td>${user.name}</td>
+      <td>${user.email}</td>
+      <td>
+        <select id="role-${user.id}">
+          <option value="Admin" ${user.role === "Admin" ? "selected" : ""}>Admin</option>
+          <option value="Manager" ${user.role === "Manager" ? "selected" : ""}>Manager</option>
+          <option value="User" ${user.role === "User" ? "selected" : ""}>User</option>
+        </select>
+      </td>
+      <td>
+        <button class="small-btn" onclick="updateRole(${user.id})">Save</button>
+        <button class="delete-btn" onclick="deleteUser(${user.id})">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+
+  document.getElementById("content").innerHTML = `
+    <div class="section-title">
+      <h2>Admin Control Panel</h2>
+      <p>Admin can update roles and delete users.</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Change Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+async function loadUserArea() {
+  const data = await getProfileData();
+  const user = data.user;
+
+  document.getElementById("content").innerHTML = `
+    <div class="user-area">
+      <h2>👤 User Area</h2>
+      <p>Welcome, <strong>${user.name}</strong>.</p>
+      <p>This page is accessible for User, Manager, and Admin.</p>
+      <div class="mini-info">
+        <span>Email: ${user.email}</span>
+        <span>Role: ${user.role}</span>
+        <span>2FA: Enabled</span>
+      </div>
+    </div>
+  `;
+}
+
+async function updateRole(id) {
+  const role = document.getElementById(`role-${id}`).value;
+
+  const res = await fetch(`/api/users/${id}/role`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ role })
+  });
+
+  const data = await res.json();
+  alert(data.message);
+  loadAdminPanel();
+}
+
+async function deleteUser(id) {
+  if (!confirm("Are you sure you want to delete this user?")) return;
+
+  const res = await fetch(`/api/users/${id}`, {
+    method: "DELETE",
+    headers: authHeaders()
+  });
+
+  const data = await res.json();
+  alert(data.message);
+  loadAdminPanel();
+}
+
+function toggleToken() {
+  const panel = document.getElementById("tokenPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+
+function logout() {
+  localStorage.clear();
+  window.location.href = "auth.html";
+}
+
+init();
+</script>
+
+</body>
+</html>

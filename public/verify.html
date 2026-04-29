@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Verify 2FA</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="center-page">
+
+<div class="security-card">
+  <div class="icon-large">🔐</div>
+  <h1>Two-Step Verification</h1>
+  <p>Enter the 6-digit code from your authenticator app.</p>
+
+  <input id="code" maxlength="6" class="otp-input" placeholder="000000">
+
+  <button onclick="verify()">Verify Identity</button>
+
+  <p id="msg"></p>
+  <a href="auth.html">Back to Login</a>
+</div>
+
+<script>
+async function verify() {
+  const email = localStorage.getItem("email");
+  const token = document.getElementById("code").value;
+
+  const res = await fetch("/api/auth/verify-2fa", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, token })
+  });
+
+  const data = await res.json();
+  document.getElementById("msg").innerText = data.message;
+
+  if (res.ok) {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("role", data.role);
+    window.location.href = "dashboard.html";
+  }
+}
+</script>
+
+</body>
+</html>

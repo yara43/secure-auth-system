@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Register</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="auth-card">
+  <div class="logo">SecureAuth</div>
+  <h2>Security Control Center</h2>
+
+  <input id="name" placeholder="👤 Full Name">
+  <input id="email" placeholder="✉️ Email Address">
+  <input id="password" type="password" placeholder="🔒 Password">
+
+  <select id="role">
+    <option value="">🔑 Select System Role</option>
+    <option value="Admin">Admin</option>
+    <option value="Manager">Manager</option>
+    <option value="User">User</option>
+  </select>
+
+  <button onclick="register()">Create Account →</button>
+
+  <p id="msg"></p>
+
+  <div id="qrBox" style="display:none;">
+    <h2>Security Verification</h2>
+    <p>Scan this QR and continue to login.</p>
+    <img id="qr" width="230">
+    <br><br>
+    <a href="login.html">Have an account? Login</a>
+  </div>
+</div>
+
+<script>
+async function register() {
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const role = document.getElementById("role").value;
+
+  const res = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password, role })
+  });
+
+  const data = await res.json();
+  document.getElementById("msg").innerText = data.message;
+
+  if (res.ok) {
+    document.getElementById("qrBox").style.display = "block";
+    document.getElementById("qr").src = data.qrCodeUrl;
+  }
+}
+</script>
+
+</body>
+</html>

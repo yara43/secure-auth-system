@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SecureAuth</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-shell">
+  <div class="auth-left">
+    <h1>SecureAuth</h1>
+    <p>Protected access with password hashing, JWT tokens, role-based permissions and two-factor authentication.</p>
+    <div class="security-points">
+      <span>🔐 Password Hashing</span>
+      <span>🛡️ JWT Protection</span>
+      <span>📱 2FA Verification</span>
+    </div>
+  </div>
+
+  <div class="auth-box">
+    <div class="tabs">
+      <button id="loginTab" class="active" onclick="showLogin()">Login</button>
+      <button id="registerTab" onclick="showRegister()">Register</button>
+    </div>
+
+    <div id="loginForm" class="form active-form">
+      <h2>Welcome Back</h2>
+      <input id="loginEmail" placeholder="Email Address">
+      <input id="loginPassword" type="password" placeholder="Password">
+      <button onclick="login()">Continue</button>
+      <p id="loginMsg"></p>
+    </div>
+
+    <div id="registerForm" class="form">
+      <h2>Create Account</h2>
+      <input id="name" placeholder="Full Name">
+      <input id="email" placeholder="Email Address">
+      <input id="password" type="password" placeholder="Password">
+
+      <select id="role">
+        <option value="">Select Role</option>
+        <option value="Admin">Admin</option>
+        <option value="Manager">Manager</option>
+        <option value="User">User</option>
+      </select>
+
+      <button onclick="register()">Create Account</button>
+      <p id="registerMsg"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+function showLogin() {
+  document.getElementById("loginForm").classList.add("active-form");
+  document.getElementById("registerForm").classList.remove("active-form");
+  document.getElementById("loginTab").classList.add("active");
+  document.getElementById("registerTab").classList.remove("active");
+}
+
+function showRegister() {
+  document.getElementById("registerForm").classList.add("active-form");
+  document.getElementById("loginForm").classList.remove("active-form");
+  document.getElementById("registerTab").classList.add("active");
+  document.getElementById("loginTab").classList.remove("active");
+}
+
+async function register() {
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const role = document.getElementById("role").value;
+
+  const res = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password, role })
+  });
+
+  const data = await res.json();
+  document.getElementById("registerMsg").innerText = data.message;
+
+  if (res.ok) {
+    localStorage.setItem("setupEmail", email);
+    localStorage.setItem("qrCodeUrl", data.qrCodeUrl);
+    window.location.href = "setup-2fa.html";
+  }
+}
+
+async function login() {
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
+
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+  document.getElementById("loginMsg").innerText = data.message;
+
+  if (res.ok) {
+    localStorage.setItem("email", email);
+    window.location.href = "verify.html";
+  }
+}
+</script>
+
+</body>
+</html>

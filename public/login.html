@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="auth-card">
+  <div class="logo">SecureAuth</div>
+  <h2>Welcome Back</h2>
+
+  <input id="email" placeholder="✉️ Email Address">
+  <input id="password" type="password" placeholder="🔒 Password">
+
+  <button onclick="login()">Login Securely →</button>
+
+  <p id="msg"></p>
+
+  <p><a href="register.html">Create New Account</a></p>
+</div>
+
+<script>
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+  document.getElementById("msg").innerText = data.message;
+
+  if (res.ok) {
+    localStorage.setItem("email", email);
+    window.location.href = "verify.html";
+  }
+}
+</script>
+
+</body>
+</html>

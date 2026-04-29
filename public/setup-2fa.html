@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Setup 2FA</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="center-page">
+
+<div class="security-card">
+  <div class="icon-large">📱</div>
+  <h1>Setup Two-Factor Authentication</h1>
+  <p>Scan this QR code using Google Authenticator, Microsoft Authenticator, or Authy.</p>
+
+  <div class="qr-frame">
+    <img id="qrImage">
+  </div>
+
+  <button onclick="goLogin()">I Scanned the QR Code</button>
+</div>
+
+<script>
+const qr = localStorage.getItem("qrCodeUrl");
+
+if (!qr) {
+  window.location.href = "auth.html";
+}
+
+document.getElementById("qrImage").src = qr;
+
+function goLogin() {
+  localStorage.removeItem("qrCodeUrl");
+  window.location.href = "auth.html";
+}
+</script>
+
+</body>
+</html>
