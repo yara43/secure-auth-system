@@ -12,7 +12,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// لما تفتحي localhost:3000 يودّيكي على صفحة Login/Register
 app.get("/", (req, res) => {
   res.redirect("/auth.html");
 });
