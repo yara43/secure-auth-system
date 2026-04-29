@@ -110,7 +110,7 @@ body {
 
 input,
 select {
-  width: 100%;
+  width: 100%;   
   padding: 16px;
   margin: 11px 0;
   border-radius: 14px;
@@ -460,3 +460,4 @@ th {
     grid-template-columns: 1fr;
   }
 }
+//end
