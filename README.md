@@ -10,3 +10,7 @@ A web-based secure authentication system using Node.js, Express, SQLite, JWT, bc
 - Role-based access control
 - Admin, Manager, and User roles
 - Protected routes
+- ## Security
+- Uses JWT for authentication
+- Uses 2FA (TOTP)
+- Passwords hashed using bcrypt
